@@ -75,14 +75,13 @@ class TdLibClient(
             val active = client ?: throw IllegalStateException("TDLib client is not started")
             suspendCancellableCoroutine { continuation ->
                 active.send(function) { result ->
-                    if (!continuation.isActive) return@send
-                    if (result is TdApi.Error) {
-                        continuation.resumeWithException(
-                            TdLibException(result.code, result.message)
-                        )
-                    } else {
-                        @Suppress("UNCHECKED_CAST")
-                        continuation.resume(result as T)
+                    if (continuation.isActive) {
+                        if (result is TdApi.Error) {
+                            continuation.resumeWithException(TdLibException(result.code, result.message))
+                        } else {
+                            @Suppress("UNCHECKED_CAST")
+                            continuation.resume(result as T)
+                        }
                     }
                 }
             }
