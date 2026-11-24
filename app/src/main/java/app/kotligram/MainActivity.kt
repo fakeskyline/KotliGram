@@ -1,5 +1,8 @@
 package app.kotligram
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.kotligram.telegram.ConnectionState
@@ -106,7 +110,7 @@ private fun KotliGramRoot() {
                     ChatScreen(
                         chat = selected,
                         messages = messages,
-                        onBack = { repository.openChat(0L) },
+                        onBack = { repository.closeChat(selected.id) },
                         onSend = { text ->
                             scope.launch {
                                 runCatching { repository.sendText(selected.id, text) }
@@ -121,6 +125,12 @@ private fun KotliGramRoot() {
                                     if (mime.startsWith("image/")) repository.sendPhoto(selected.id, file.absolutePath)
                                     else repository.sendDocument(selected.id, file.absolutePath)
                                 }.onFailure { error = it.message.orEmpty() }
+                            }
+                        },
+                        onVoice = { path, duration ->
+                            scope.launch {
+                                runCatching { repository.sendVoiceNote(selected.id, path, duration) }
+                                    .onFailure { error = it.message.orEmpty() }
                             }
                         },
                         error = error
@@ -263,9 +273,33 @@ private fun ChatScreen(
     onBack: () -> Unit,
     onSend: (String) -> Unit,
     onAttach: (Uri) -> Unit,
+    onVoice: (String, Int) -> Unit,
     error: String
 ) {
     var text by remember(chat.id) { mutableStateOf("") }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var recordingPath by remember { mutableStateOf<String?>(null) }
+    var recordingStartedAt by remember { mutableLongStateOf(0L) }
+    val context = LocalContext.current
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && recorder == null) {
+            runCatching {
+                val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+                val active = MediaRecorder()
+                active.setAudioSource(MediaRecorder.AudioSource.MIC)
+                active.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                active.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                active.setAudioChannels(1)
+                active.setAudioSamplingRate(44100)
+                active.setOutputFile(file.absolutePath)
+                active.prepare()
+                active.start()
+                recorder = active
+                recordingPath = file.absolutePath
+                recordingStartedAt = System.currentTimeMillis()
+            }
+        }
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent(), onResult = { it?.let(onAttach) })
     Scaffold(
         topBar = {
@@ -277,6 +311,25 @@ private fun ChatScreen(
         bottomBar = {
             Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { picker.launch("*/*") }) { Icon(Icons.Default.AttachFile, "Прикрепить файл") }
+                TextButton(onClick = {
+                    if (recorder == null) {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        } else {
+                            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    } else {
+                        val active = recorder
+                        val path = recordingPath
+                        runCatching { active?.stop() }
+                        active?.release()
+                        recorder = null
+                        if (path != null) {
+                            val duration = ((System.currentTimeMillis() - recordingStartedAt) / 1000L).toInt()
+                            if (duration > 0) onVoice(path, duration) else File(path).delete()
+                        }
+                    }
+                }) { Text(if (recorder == null) "Голос" else "Стоп") }
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
