@@ -392,11 +392,14 @@ private fun ChatListScreen(
 }
 
 @Composable
-private fun PeerAvatar(chat: TelegramChat, size: androidx.compose.ui.unit.Dp) {
-    val bitmap by produceState<Bitmap?>(initialValue = null, chat.avatarPath) {
-        value = if (chat.avatarPath.isNullOrBlank()) null else withContext(Dispatchers.IO) {
-            BitmapFactory.decodeFile(chat.avatarPath)
-        }
+private fun PeerAvatar(
+    chat: TelegramChat,
+    size: androidx.compose.ui.unit.Dp,
+    onAvatarVisible: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    LaunchedEffect(chat.avatarFileId) {
+        chat.avatarFileId?.let(onAvatarVisible)
     }
     Surface(
         modifier = Modifier.size(size),
@@ -404,8 +407,18 @@ private fun PeerAvatar(chat: TelegramChat, size: androidx.compose.ui.unit.Dp) {
         color = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Box(contentAlignment = Alignment.Center) {
-            if (bitmap != null) {
-                Image(bitmap!!.asImageBitmap(), contentDescription = chat.title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (!chat.avatarPath.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(File(chat.avatarPath))
+                        .memoryCacheKey(chat.avatarPath)
+                        .diskCacheKey(chat.avatarPath)
+                        .crossfade(false)
+                        .build(),
+                    contentDescription = chat.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
             } else {
                 Text(chat.title.take(1).uppercase(), style = MaterialTheme.typography.titleLarge)
             }
@@ -417,10 +430,8 @@ private fun PeerAvatar(chat: TelegramChat, size: androidx.compose.ui.unit.Dp) {
 @Composable
 private fun SettingsScreen(
     profile: TelegramProfile?,
-    darkTheme: Boolean,
     autoDownloadPhotos: Boolean,
     onBack: () -> Unit,
-    onDarkTheme: (Boolean) -> Unit,
     onAutoDownloadPhotos: (Boolean) -> Unit
 ) {
     Scaffold(
@@ -437,56 +448,70 @@ private fun SettingsScreen(
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(bottom = 28.dp)
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                ListItem(
-                    headlineContent = { Text(profile?.let { "${it.firstName} ${it.lastName}".trim() } ?: "Мой профиль") },
-                    supportingContent = { Text(profile?.username?.let { "@$it" } ?: "Telegram") },
-                    leadingContent = {
-                        Surface(Modifier.size(48.dp), shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                            Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, contentDescription = null) }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(Modifier.size(58.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(30.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(profile?.let { "${it.firstName} ${it.lastName}".trim() }.orEmpty().ifBlank { "Мой аккаунт" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(profile?.username?.takeIf(String::isNotBlank)?.let { "@$it" } ?: "Telegram", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(profile?.phoneNumber?.takeIf(String::isNotBlank) ?: "Номер не отображается", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                )
+                }
             }
             item { SettingsHeader("Внешний вид") }
             item {
-                ListItem(
-                    headlineContent = { Text("Тёмная тема") },
-                    supportingContent = { Text("Переключение светлого и тёмного оформления") },
-                    trailingContent = { Switch(checked = darkTheme, onCheckedChange = onDarkTheme) }
-                )
+                SettingsCard {
+                    ListItem(headlineContent = { Text("Тёмная тема") }, supportingContent = { Text("В KotliGram используется только тёмное оформление") }, trailingContent = { Text("Включена", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) })
+                }
             }
             item { SettingsHeader("Данные и память") }
             item {
-                ListItem(
-                    headlineContent = { Text("Автозагрузка фотографий") },
-                    supportingContent = { Text("Загружать фотографии при открытии переписки") },
-                    trailingContent = { Switch(checked = autoDownloadPhotos, onCheckedChange = onAutoDownloadPhotos) }
-                )
+                SettingsCard {
+                    ListItem(headlineContent = { Text("Автозагрузка фотографий") }, supportingContent = { Text("Загружать фотографии при открытии переписки") }, trailingContent = { Switch(checked = autoDownloadPhotos, onCheckedChange = onAutoDownloadPhotos) })
+                }
             }
             item { SettingsHeader("Аккаунт") }
             item {
-                ListItem(
-                    headlineContent = { Text("Номер телефона") },
-                    supportingContent = { Text(profile?.phoneNumber?.ifBlank { "Скрыт" } ?: "Загрузка…") }
-                )
-            }
-            item {
-                ListItem(
-                    headlineContent = { Text("Имя пользователя") },
-                    supportingContent = { Text(profile?.username?.takeIf(String::isNotBlank)?.let { "@$it" } ?: "Не задано") }
-                )
+                SettingsCard {
+                    ListItem(headlineContent = { Text("Имя пользователя") }, supportingContent = { Text(profile?.username?.takeIf(String::isNotBlank)?.let { "@$it" } ?: "Не задано") })
+                    HorizontalDivider()
+                    ListItem(headlineContent = { Text("Номер телефона") }, supportingContent = { Text(profile?.phoneNumber?.takeIf(String::isNotBlank) ?: "Скрыт") })
+                    HorizontalDivider()
+                    ListItem(headlineContent = { Text("ID аккаунта") }, supportingContent = { Text(profile?.id?.toString() ?: "Загрузка…") })
+                }
             }
             item { SettingsHeader("О приложении") }
             item {
-                ListItem(
-                    headlineContent = { Text("KotliGram") },
-                    supportingContent = { Text("Версия 0.2.0 · Независимый клиент Telegram на TDLib") }
-                )
+                SettingsCard {
+                    ListItem(headlineContent = { Text("KotliGram") }, supportingContent = { Text("Версия 0.3.0 · Независимый клиент Telegram на TDLib") })
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(content = content)
     }
 }
 

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import org.drinkless.tdlib.TdApi
 
 data class TelegramChat(
@@ -73,6 +74,7 @@ class TelegramRepository(
     private val _activeChat = MutableStateFlow<Long?>(null)
     val activeChat: StateFlow<Long?> = _activeChat.asStateFlow()
     private var myUserId: Long = 0L
+    private val requestedFileDownloads = ConcurrentHashMap.newKeySet<Int>()
 
     init {
         client.start()
@@ -100,7 +102,6 @@ class TelegramRepository(
                 runCatching { client.request(TdApi.GetChat(update.chatId)) }
                     .onSuccess { chat ->
                         mergeChat(chat)
-                        chat.photo?.small?.id?.let { fileId -> scope.launch { runCatching { downloadFile(fileId) } } }
                     }
             }
             is TdApi.UpdateChatPermissions -> _chats.value = _chats.value.map {
@@ -188,7 +189,6 @@ class TelegramRepository(
                         .onSuccess { chat ->
                             mergeChat(chat)
                             refreshChatPermissions(chat)
-                            chat.photo?.small?.id?.let { fileId -> scope.launch { runCatching { downloadFile(fileId) } } }
                         }
                 }
             } catch (e: Exception) {
@@ -327,6 +327,23 @@ class TelegramRepository(
         }
     }
 
+    fun ensureFileDownloaded(fileId: Int) {
+        if (!requestedFileDownloads.add(fileId)) return
+        scope.launch {
+            try {
+                val file = client.request(TdApi.GetFile(fileId))
+                if (file.local.isDownloadingCompleted) {
+                    updateDownloadedFile(file)
+                } else if (!file.local.isDownloadingActive) {
+                    client.request(TdApi.DownloadFile(fileId, 32, 0L, 0L, false))
+                }
+            } catch (error: Exception) {
+                requestedFileDownloads.remove(fileId)
+                android.util.Log.w("KotliGram", "Avatar download request failed: $fileId", error)
+            }
+        }
+    }
+
     suspend fun downloadFile(fileId: Int): String? {
         var file = runCatching { client.request(TdApi.GetFile(fileId)) }.getOrNull() ?: return null
         if (file.local.isDownloadingCompleted) return file.local.path
@@ -343,6 +360,7 @@ class TelegramRepository(
     }
 
     private fun updateDownloadedFile(file: TdApi.File) {
+        if (file.local.isDownloadingCompleted) requestedFileDownloads.remove(file.id)
         val path = file.local.path.takeIf { file.local.isDownloadingCompleted && it.isNotBlank() } ?: return
         _chats.value = _chats.value.map {
             if (it.avatarFileId == file.id) it.copy(avatarPath = path) else it
@@ -377,7 +395,9 @@ class TelegramRepository(
             lastMessage = chat.lastMessage?.let(::messagePreview).orEmpty(),
             unreadCount = chat.unreadCount,
             avatarFileId = avatarId,
-            avatarPath = previous?.takeIf { it.avatarFileId == avatarId }?.avatarPath,
+            avatarPath = chat.photo?.small?.local?.let { local ->
+                local.path.takeIf { local.isDownloadingCompleted && it.isNotBlank() }
+            } ?: previous?.takeIf { it.avatarFileId == avatarId }?.avatarPath,
             canSendMessages = previous?.canSendMessages ?: chat.permissions.canSendBasicMessages,
             isChannel = previous?.isChannel ?: false
         )
