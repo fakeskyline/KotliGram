@@ -114,11 +114,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "\$TELEGRAM_API_ID" =~ ^[0-9]+\$ ]]; then
+          if [[ ! "$TELEGRAM_API_ID" =~ ^[0-9]+$ ]]; then
             echo "TELEGRAM_API_ID is missing or invalid. Add it as a repository Actions secret."
             exit 1
           fi
-          if [[ ! "\$TELEGRAM_API_HASH" =~ ^[0-9a-fA-F]{32}\$ ]]; then
+          if [[ ! "$TELEGRAM_API_HASH" =~ ^[0-9a-fA-F]{32}$ ]]; then
             echo "TELEGRAM_API_HASH is missing or invalid. Add it as a repository Actions secret."
             exit 1
           fi
