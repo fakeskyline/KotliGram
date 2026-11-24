@@ -1,0 +1,11 @@
+TDLib third-party components
+
+Source package: https://github.com/AkashPriyadarshii/tdlib-android
+Pinned package: io.github.tdlib-android:core:0.1.1
+Upstream TDLib version: 1.8.64
+Vendored files: Client.class, TdApi.class, libtdjni.so for arm64-v8a, armeabi-v7a, x86_64 and x86.
+
+TDLib native code and Java bindings are distributed under the Boost Software License 1.0.
+License text: https://www.boost.org/LICENSE_1_0.txt
+
+The CI workflow downloads the pinned AAR from Maven Central and extracts its Java classes and native binaries. The original AAR SHA-256 is recorded in TDLIB-AAR-SHA256.txt.

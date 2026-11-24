@@ -1,14 +1,6 @@
 # TDLib integration
 
-KotliGram resolves TDLib through the pinned Maven Central Android AAR:
-
-`io.github.tdlib-android:core:0.1.1`
-
-The AAR contains:
-- `org.drinkless.tdlib.Client` and generated `TdApi` Java bindings;
-- `libtdjni.so` native JNI library for `arm64-v8a`, `armeabi-v7a`, `x86_64` and `x86`.
-
-This avoids manually committing multi-megabyte binary files and keeps the Java API and JNI library packaged together. Gradle downloads the AAR during the Android build. The published package documents its source provenance, ABI set and license notices: https://github.com/AkashPriyadarshii/tdlib-android
+KotliGram uses the pinned TDLib Android AAR `io.github.tdlib-android:core:0.1.1` as its binary source. The Android CI downloads it from Maven Central, extracts the generated `Client` and `TdApi` classes into `app/libs/tdlib-classes.jar`, and extracts `libtdjni.so` for `arm64-v8a`, `armeabi-v7a`, `x86_64` and `x86` into `app/src/main/jniLibs/`. The files are committed to this repository by the CI workflow, then the app compiles against the Java bindings and packages the matching native library. No local NDK build is needed. Source and build provenance: https://github.com/AkashPriyadarshii/tdlib-android
 
 ## KotliGram adapter
 
@@ -32,7 +24,7 @@ Or provide `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` environment variables to Gr
 
 ## Compatibility and limitations
 
-- The app's configured minSdk is 26, matching the AAR's Android requirement. TDLib AAR supplies four ABIs; Gradle packages the matching binary for the target device.
+- The app's configured minSdk is 26, matching the TDLib Android AAR requirement. TDLib AAR supplies four ABIs; Gradle packages the matching binary for the target device.
 - Voice recording uses Android MediaRecorder to create an AAC/M4A file. TDLib accepts M4A as a voice-note input format.
 - The current app UI is an early functional layer, not a complete Telegram feature set. Download/playback of incoming media, pagination, search, replies, edits, reactions, calls and push notifications remain future work.
 

@@ -1,5 +1,8 @@
 name: Android CI
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main ]
@@ -26,8 +29,49 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Download and vendor TDLib Java bindings and JNI binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s app/libs/tdlib-classes.jar || ! -s app/src/main/jniLibs/arm64-v8a/libtdjni.so ]]; then
+            mkdir -p app/libs app/src/main/jniLibs
+            curl --fail --location --retry 3 --retry-delay 2 \
+              https://repo.maven.apache.org/maven2/io/github/tdlib-android/core/0.1.1/core-0.1.1.aar \
+              --output /tmp/tdlib-core.aar
+            unzip -p /tmp/tdlib-core.aar classes.jar > app/libs/tdlib-classes.jar
+            for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
+              mkdir -p "app/src/main/jniLibs/$ABI"
+              unzip -p /tmp/tdlib-core.aar "jni/$ABI/libtdjni.so" > "app/src/main/jniLibs/$ABI/libtdjni.so"
+              test -s "app/src/main/jniLibs/$ABI/libtdjni.so"
+            done
+            sha256sum /tmp/tdlib-core.aar > app/libs/TDLIB-AAR-SHA256.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app/libs/tdlib-classes.jar app/libs/TDLIB-AAR-SHA256.txt app/src/main/jniLibs
+            if ! git diff --cached --quiet; then
+              git commit -m "Vendor TDLib Java bindings and JNI binaries [skip ci]"
+              git push origin HEAD:main
+            fi
+          fi
+
+      - name: Verify TDLib native payload
+        run: |
+          set -euo pipefail
+          jar tf app/libs/tdlib-classes.jar | grep -qx 'org/drinkless/tdlib/Client.class'
+          jar tf app/libs/tdlib-classes.jar | grep -qx 'org/drinkless/tdlib/TdApi.class'
+          for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
+            test -s "app/src/main/jniLibs/$ABI/libtdjni.so"
+          done
+
       - name: Build debug APK
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
         run: gradle :app:assembleDebug
+
+      - name: Verify APK contains TDLib JNI
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libtdjni.so'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

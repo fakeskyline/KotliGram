@@ -44,7 +44,7 @@ android.defaultConfig {
 }
 
 dependencies {
-    implementation("io.github.tdlib-android:core:0.1.1")
+    implementation(files("libs/tdlib-classes.jar"))
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.core:core-ktx:1.15.0")

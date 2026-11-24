@@ -4,7 +4,7 @@ An independent Android Telegram client built with Kotlin, Jetpack Compose and Ma
 
 ## Current implementation
 
-- TDLib Android runtime dependency: Java/JNI bindings plus precompiled `libtdjni.so` for ARM and x86 ABIs, resolved from Maven Central.
+- TDLib Java bindings (`Client` and `TdApi`) are vendored in `app/libs/tdlib-classes.jar`; native `libtdjni.so` binaries for all four Android ABIs are stored in `app/src/main/jniLibs/`. CI downloads the pinned TDLib AAR once, extracts these files and commits them.
 - A Kotlin TDLib client wrapper with coroutine requests and a Flow update stream.
 - Authorization state handling for phone number, verification code, cloud password, database encryption key and QR confirmation.
 - Live chat list and message history through TDLib updates.
@@ -37,7 +37,7 @@ Run:
 gradle :app:assembleDebug
 ```
 
-TDLib is consumed as a pinned Maven Central Android AAR (`io.github.tdlib-android:core:0.1.1`). The AAR supplies the generated Java API and native libraries; no local NDK build is needed. The binary library is resolved by Gradle and is not copied into the Git repository.
+TDLib is sourced from the pinned Android AAR (`io.github.tdlib-android:core:0.1.1`). GitHub Actions extracts `classes.jar` and `libtdjni.so` for `arm64-v8a`, `armeabi-v7a`, `x86_64` and `x86` into the repository. The app then compiles against the vendored Java bindings and packages the matching native binary; no local NDK build is needed.
 
 ## Architecture notes
 
