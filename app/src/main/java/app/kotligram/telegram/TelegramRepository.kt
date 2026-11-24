@@ -115,31 +115,7 @@ class TelegramRepository(
     private fun handleAuth(state: TdApi.AuthorizationState) {
         when (state) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> {
-                if (!client.hasCredentials) {
-                    _connection.value = ConnectionState.CredentialsRequired
-                } else {
-                    scope.launch {
-                        try {
-                            val root = "kotligram-tdlib"
-                            client.request(TdApi.SetTdlibParameters().apply {
-                                databaseDirectory = root
-                                filesDirectory = "$root/files"
-                                useMessageDatabase = true
-                                useFileDatabase = true
-                                useChatInfoDatabase = true
-                                useSecretChats = false
-                                apiId = 0
-                                apiHash = ""
-                                systemLanguageCode = "ru"
-                                deviceModel = "Android"
-                                systemVersion = android.os.Build.VERSION.RELEASE
-                                applicationVersion = "0.1.0"
-                            })
-                        } catch (e: Exception) {
-                            _connection.value = ConnectionState.Failed(e.message ?: "TDLib parameters error")
-                        }
-                    }
-                }
+                if (!client.hasCredentials) _connection.value = ConnectionState.CredentialsRequired
             }
             is TdApi.AuthorizationStateWaitEncryptionKey -> _connection.value = ConnectionState.WaitingForDatabaseKey
             is TdApi.AuthorizationStateWaitPhoneNumber -> _connection.value = ConnectionState.WaitingForPhone
@@ -159,30 +135,30 @@ class TelegramRepository(
     }
 
     suspend fun submitDatabaseKey(key: String) {
-        client.request(TdApi.CheckDatabaseEncryptionKey(key.toByteArray()))
+        client.request(TdApi.CheckDatabaseEncryptionKey().apply { encryptionKey = key.toByteArray() })
     }
 
     suspend fun submitPhone(phone: String) {
-        client.request(TdApi.SetAuthenticationPhoneNumber(phone, null))
+        client.request(TdApi.SetAuthenticationPhoneNumber().apply { phoneNumber = phone; settings = null })
     }
 
     suspend fun submitCode(code: String) {
-        client.request(TdApi.CheckAuthenticationCode(code))
+        client.request(TdApi.CheckAuthenticationCode().apply { this.code = code })
     }
 
     suspend fun submitPassword(password: String) {
-        client.request(TdApi.CheckAuthenticationPassword(password))
+        client.request(TdApi.CheckAuthenticationPassword().apply { this.password = password })
     }
 
     suspend fun requestQrLogin() {
-        client.request(TdApi.RequestQrCodeAuthentication(longArrayOf()))
+        client.request(TdApi.RequestQrCodeAuthentication().apply { otherUserIds = longArrayOf() })
     }
 
     fun loadChats() {
         scope.launch {
             try {
-                client.request(TdApi.LoadChats(TdApi.ChatListMain(), 100))
-                val result = client.request(TdApi.GetChats(TdApi.ChatListMain(), 100))
+                client.request(TdApi.LoadChats().apply { chatList = TdApi.ChatListMain(); limit = 100 })
+                val result = client.request(TdApi.GetChats().apply { chatList = TdApi.ChatListMain(); limit = 100 })
                 result.chatIds.forEach { id ->
                     try {
                         val chat = client.request(TdApi.GetChat(id))
@@ -200,8 +176,8 @@ class TelegramRepository(
         _messages.value = emptyList()
         scope.launch {
             try {
-                client.request(TdApi.OpenChat(chatId))
-                val history = client.request(TdApi.GetChatHistory(chatId, 0L, 0, 50, false))
+                client.request(TdApi.OpenChat().apply { this.chatId = chatId })
+                val history = client.request(TdApi.GetChatHistory().apply { this.chatId = chatId; fromMessageId = 0L; offset = 0; limit = 50; onlyLocal = false })
                 _messages.value = history.messages.map(::toMessage).sortedBy { it.date }
             } catch (_: Exception) { }
         }
@@ -211,7 +187,7 @@ class TelegramRepository(
         val content = TdApi.InputMessageText().apply {
             this.text = TdApi.FormattedText(text, emptyArray())
         }
-        client.request(TdApi.SendMessage(chatId, null, null, null, null, content))
+        client.request(TdApi.SendMessage().apply { this.chatId = chatId; inputMessageContent = content })
     }
 
     suspend fun sendPhoto(chatId: Long, path: String) {
