@@ -168,6 +168,11 @@ class TelegramRepository(
         }
     }
 
+    fun closeChat(chatId: Long) {
+        scope.launch { runCatching { client.request(TdApi.CloseChat().apply { this.chatId = chatId }) } }
+        _activeChat.value = null
+    }
+
     fun openChat(chatId: Long) {
         _activeChat.value = chatId
         _messages.value = emptyList()
