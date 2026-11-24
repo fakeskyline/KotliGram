@@ -32,6 +32,7 @@ import app.kotligram.telegram.ConnectionState
 import app.kotligram.telegram.TelegramChat
 import app.kotligram.telegram.TelegramMessage
 import app.kotligram.telegram.TelegramRepository
+import app.kotligram.telegram.TelegramProfile
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -103,6 +104,7 @@ private fun KotliGramRoot() {
                     ChatListScreen(
                         chats = chats,
                         profileName = profile?.let { listOf(it.firstName, it.lastName).filter(String::isNotBlank).joinToString(" ") }.orEmpty(),
+                        profile = profile,
                         onOpen = repository::openChat,
                         onRefresh = repository::loadChats
                     )
@@ -221,9 +223,11 @@ private fun QrScreen(link: String) {
 private fun ChatListScreen(
     chats: List<TelegramChat>,
     profileName: String,
+    profile: TelegramProfile?,
     onOpen: (Long) -> Unit,
     onRefresh: () -> Unit
 ) {
+    var showProfile by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -235,7 +239,7 @@ private fun ChatListScreen(
                 },
                 actions = {
                     TextButton(onClick = onRefresh) { Text("Обновить") }
-                    Icon(Icons.Default.Person, contentDescription = "Профиль", modifier = Modifier.padding(horizontal = 12.dp))
+                    IconButton(onClick = { showProfile = true }) { Icon(Icons.Default.Person, contentDescription = "Профиль") }
                 }
             )
         }
@@ -262,6 +266,21 @@ private fun ChatListScreen(
                 }
             }
         }
+    }
+    if (showProfile) {
+        AlertDialog(
+            onDismissRequest = { showProfile = false },
+            title = { Text("Профиль Telegram") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(profile?.let { "${it.firstName} ${it.lastName}".trim() } ?: "Профиль загружается")
+                    Text(profile?.username?.let { "@$it" }?.takeIf(String::isNotBlank) ?: "Имя пользователя не задано")
+                    Text(profile?.phoneNumber?.takeIf(String::isNotBlank) ?: "Номер телефона скрыт")
+                    Text("ID: ${profile?.id ?: "—"}")
+                }
+            },
+            confirmButton = { TextButton(onClick = { showProfile = false }) { Text("Закрыть") } }
+        )
     }
 }
 
