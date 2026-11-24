@@ -80,6 +80,7 @@ private fun KotliGramRoot() {
                 hint = "Номер телефона в международном формате, например +380…",
                 button = "Получить код",
                 error = error,
+                onQrLogin = { scope.launch { runCatching { repository.requestQrLogin() }.onFailure { error = it.message.orEmpty() } } },
                 onSubmit = { value -> scope.launch { runCatching { repository.submitPhone(value) }.onSuccess { error = "" }.onFailure { error = it.message.orEmpty() } } }
             )
             is ConnectionState.WaitingForCode -> AuthForm(
@@ -178,6 +179,7 @@ private fun AuthForm(
     button: String,
     error: String,
     password: Boolean = false,
+    onQrLogin: (() -> Unit)? = null,
     onSubmit: (String) -> Unit
 ) {
     var value by remember(title) { mutableStateOf("") }
@@ -199,6 +201,9 @@ private fun AuthForm(
         Spacer(Modifier.height(12.dp))
         Button(onClick = { onSubmit(value) }, modifier = Modifier.fillMaxWidth(), enabled = value.isNotBlank()) {
             Text(button)
+        }
+        if (onQrLogin != null) {
+            TextButton(onClick = onQrLogin, modifier = Modifier.fillMaxWidth()) { Text("Войти по QR-коду") }
         }
     }
 }
