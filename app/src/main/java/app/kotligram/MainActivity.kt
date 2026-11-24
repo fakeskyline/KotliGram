@@ -84,10 +84,9 @@ private fun KotliGramRoot() {
     val profile by repository.profile.collectAsState()
     var error by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
-    var darkTheme by remember { mutableStateOf(preferences.getBoolean("dark_theme", true)) }
     val scope = rememberCoroutineScope()
 
-    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
+    MaterialTheme(colorScheme = darkColorScheme()) {
         when (val state = connection) {
             ConnectionState.Starting -> CenterMessage("Запуск KotliGram…")
             ConnectionState.CredentialsRequired -> CredentialsScreen()
@@ -142,13 +141,8 @@ private fun KotliGramRoot() {
                 if (showSettings) {
                     SettingsScreen(
                         profile = profile,
-                        darkTheme = darkTheme,
                         autoDownloadPhotos = preferences.getBoolean("auto_download_photos", true),
                         onBack = { showSettings = false },
-                        onDarkTheme = {
-                            darkTheme = it
-                            preferences.edit().putBoolean("dark_theme", it).apply()
-                        },
                         onAutoDownloadPhotos = {
                             preferences.edit().putBoolean("auto_download_photos", it).apply()
                         }
@@ -164,6 +158,7 @@ private fun KotliGramRoot() {
                             profile = profile,
                             onOpen = repository::openChat,
                             onRefresh = repository::loadChats,
+                            onAvatarVisible = repository::ensureFileDownloaded,
                             onSettings = { showSettings = true }
                         )
                     } else {
@@ -304,6 +299,7 @@ private fun ChatListScreen(
     profile: TelegramProfile?,
     onOpen: (Long) -> Unit,
     onRefresh: () -> Unit,
+    onAvatarVisible: (Int) -> Unit,
     onSettings: () -> Unit
 ) {
     var showProfile by remember { mutableStateOf(false) }
@@ -352,7 +348,7 @@ private fun ChatListScreen(
                             Modifier.fillMaxWidth().clickable { onOpen(chat.id) }.padding(horizontal = 14.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            PeerAvatar(chat = chat, size = 54.dp)
+                            PeerAvatar(chat = chat, size = 54.dp, onAvatarVisible = onAvatarVisible)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(chat.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
