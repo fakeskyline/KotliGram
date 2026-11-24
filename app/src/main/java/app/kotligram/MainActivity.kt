@@ -1,6 +1,7 @@
 package app.kotligram
 
 import android.Manifest
+import android.graphics.Bitmap
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.net.Uri
@@ -21,6 +22,8 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +38,8 @@ import app.kotligram.telegram.TelegramRepository
 import app.kotligram.telegram.TelegramProfile
 import kotlinx.coroutines.launch
 import java.io.File
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -210,6 +215,16 @@ private fun AuthForm(
 
 @Composable
 private fun QrScreen(link: String) {
+    val qrBitmap = remember(link) {
+        val matrix = QRCodeWriter().encode(link, BarcodeFormat.QR_CODE, 640, 640)
+        val pixels = IntArray(640 * 640)
+        for (y in 0 until 640) for (x in 0 until 640) {
+            pixels[y * 640 + x] = if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        }
+        Bitmap.createBitmap(640, 640, Bitmap.Config.ARGB_8888).apply {
+            setPixels(pixels, 0, 640, 0, 0, 640, 640)
+        }
+    }
     Column(
         Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -217,7 +232,9 @@ private fun QrScreen(link: String) {
     ) {
         Text("Подтверждение входа", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
-        Text("Открой Telegram на уже авторизованном устройстве и подтверди вход по ссылке:")
+        Text("Открой Telegram на уже авторизованном устройстве и отсканируй этот код:")
+        Spacer(Modifier.height(12.dp))
+        Image(qrBitmap.asImageBitmap(), contentDescription = "QR-код входа", modifier = Modifier.size(260.dp))
         Spacer(Modifier.height(12.dp))
         SelectionContainer { Text(link) }
     }
