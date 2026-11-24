@@ -206,6 +206,16 @@ class TelegramRepository(
         client.request(TdApi.SendMessage(chatId, null, null, null, null, content))
     }
 
+    suspend fun sendVoiceNote(chatId: Long, path: String, durationSeconds: Int) {
+        val content = TdApi.InputMessageVoiceNote().apply {
+            voiceNote = TdApi.InputFileLocal(path)
+            duration = durationSeconds.coerceAtLeast(1)
+            waveform = ByteArray(0)
+            caption = null
+        }
+        client.request(TdApi.SendMessage(chatId, null, null, null, null, content))
+    }
+
     fun loadProfile() {
         scope.launch {
             try {

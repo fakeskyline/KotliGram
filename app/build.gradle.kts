@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -27,7 +29,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 
-val localProperties = java.util.Properties().apply {
+val localProperties = Properties().apply {
     val localFile = rootProject.file("local.properties")
     if (localFile.exists()) localFile.inputStream().use { load(it) }
 }

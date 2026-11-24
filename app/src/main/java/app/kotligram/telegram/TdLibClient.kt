@@ -22,7 +22,8 @@ class TdLibClient(
     private val appContext = context.applicationContext
     private var client: Client? = null
     private val _updates = MutableSharedFlow<TdApi.Update>(
-        extraBufferCapacity = 256,
+        replay = 1,
+        extraBufferCapacity = 255,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val updates = _updates.asSharedFlow()
