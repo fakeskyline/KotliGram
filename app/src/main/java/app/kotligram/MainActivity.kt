@@ -73,13 +73,6 @@ private fun KotliGramRoot() {
         when (val state = connection) {
             ConnectionState.Starting -> CenterMessage("Запуск KotliGram…")
             ConnectionState.CredentialsRequired -> CredentialsScreen()
-            ConnectionState.WaitingForDatabaseKey -> AuthForm(
-                title = "Ключ базы данных",
-                hint = "Если вы ранее задавали ключ шифрования, введите его",
-                button = "Продолжить",
-                error = error,
-                onSubmit = { value -> scope.launch { runCatching { repository.submitDatabaseKey(value) }.onFailure { error = it.message.orEmpty() } } }
-            )
             ConnectionState.WaitingForPhone -> AuthForm(
                 title = "Вход в Telegram",
                 hint = "Номер телефона в международном формате, например +380…",

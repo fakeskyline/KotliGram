@@ -37,7 +37,6 @@ data class TelegramProfile(
 sealed interface ConnectionState {
     data object Starting : ConnectionState
     data object CredentialsRequired : ConnectionState
-    data object WaitingForDatabaseKey : ConnectionState
     data object WaitingForPhone : ConnectionState
     data class WaitingForCode(val phone: String) : ConnectionState
     data object WaitingForPassword : ConnectionState
@@ -114,7 +113,6 @@ class TelegramRepository(
             is TdApi.AuthorizationStateWaitTdlibParameters -> {
                 if (!client.hasCredentials) _connection.value = ConnectionState.CredentialsRequired
             }
-            is TdApi.AuthorizationStateWaitEncryptionKey -> _connection.value = ConnectionState.WaitingForDatabaseKey
             is TdApi.AuthorizationStateWaitPhoneNumber -> _connection.value = ConnectionState.WaitingForPhone
             is TdApi.AuthorizationStateWaitCode -> _connection.value = ConnectionState.WaitingForCode("")
             is TdApi.AuthorizationStateWaitPassword -> _connection.value = ConnectionState.WaitingForPassword
@@ -129,10 +127,6 @@ class TelegramRepository(
             is TdApi.AuthorizationStateClosing -> _connection.value = ConnectionState.Starting
             is TdApi.AuthorizationStateClosed -> _connection.value = ConnectionState.Starting
         }
-    }
-
-    suspend fun submitDatabaseKey(key: String) {
-        client.request(TdApi.CheckDatabaseEncryptionKey().apply { encryptionKey = key.toByteArray() })
     }
 
     suspend fun submitPhone(phone: String) {
@@ -194,24 +188,33 @@ class TelegramRepository(
 
     suspend fun sendPhoto(chatId: Long, path: String) {
         val content = TdApi.InputMessagePhoto().apply {
-            photo = TdApi.InputFileLocal(path)
+            photo = TdApi.InputPhoto().apply {
+                photo = TdApi.InputFileLocal(path)
+                addedStickerFileIds = intArrayOf()
+                width = 0
+                height = 0
+            }
         }
         client.request(TdApi.SendMessage(chatId, null, null, null, null, content))
     }
 
     suspend fun sendDocument(chatId: Long, path: String) {
         val content = TdApi.InputMessageDocument().apply {
-            document = TdApi.InputFileLocal(path)
+            document = TdApi.InputDocument().apply {
+                document = TdApi.InputFileLocal(path)
+                disableContentTypeDetection = false
+            }
         }
         client.request(TdApi.SendMessage(chatId, null, null, null, null, content))
     }
 
     suspend fun sendVoiceNote(chatId: Long, path: String, durationSeconds: Int) {
         val content = TdApi.InputMessageVoiceNote().apply {
-            voiceNote = TdApi.InputFileLocal(path)
-            duration = durationSeconds.coerceAtLeast(1)
-            waveform = ByteArray(0)
-            caption = null
+            voiceNote = TdApi.InputVoiceNote().apply {
+                voiceNote = TdApi.InputFileLocal(path)
+                duration = durationSeconds.coerceAtLeast(1)
+                waveform = ByteArray(0)
+            }
         }
         client.request(TdApi.SendMessage(chatId, null, null, null, null, content))
     }
