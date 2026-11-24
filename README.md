@@ -1,29 +1,23 @@
 # KotliGram
 
-An independent Android Telegram client built with Kotlin, Jetpack Compose and Material 3.
+An independent Android Telegram client built with Kotlin, Jetpack Compose, Material 3 and TDLib.
 
 ## Current implementation
 
-- TDLib Java bindings (`Client` and `TdApi`) are vendored as JAR files in `app/libs/`; native `libtdjni.so` binaries for all four Android ABIs are stored in `app/src/main/jniLibs/`. CI downloads the pinned TDLib AAR once, extracts these files and commits them.
-- A Kotlin TDLib client wrapper with coroutine requests and a Flow update stream.
-- Authorization state handling for phone number, verification code, cloud password, database encryption key and QR confirmation.
-- Live chat list and message history through TDLib updates.
+- Telegram sign-in using phone number, verification code, cloud password and QR confirmation.
+- Live chat list and message history.
 - Text, photo, document and recorded voice-note sending.
-- Basic Telegram profile details.
+- Chat and channel avatars loaded through TDLib file downloads.
+- Photo previews and manual download of incoming media to the device's Downloads/KotliGram folder.
+- Channel posting permissions checked against the current user's channel membership status and administrator rights.
+- Basic appearance and media auto-download settings.
 - GitHub Actions debug APK build.
 
 ## Telegram API credentials
 
-KotliGram intentionally contains **no API ID or API HASH**. Telegram requires every client application to use its own credentials. Do not copy credentials from BirGram, Telegram X or another app.
+The app reads its own Telegram API credentials from local.properties or the TELEGRAM_API_ID and TELEGRAM_API_HASH environment variables. CI uses GitHub Actions repository secrets. Never commit credentials, Telegram session databases or encryption keys.
 
-To enable a real Telegram connection, register your app at https://my.telegram.org/apps and place these values in the root `local.properties` file:
-
-```properties
-telegram.apiId=YOUR_API_ID
-telegram.apiHash=YOUR_API_HASH
-```
-
-Alternatively, provide `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` as environment variables in CI. Never commit credentials, Telegram session databases or encryption keys. Without credentials, KotliGram builds and shows the configuration screen, but it cannot authenticate or load account data.
+API HASH is required by the Telegram client and is embedded in the built APK. It is not stored in Git, but a determined person can extract it from a distributed APK; do not treat a client-side secret as impossible to recover.
 
 ## Build
 
@@ -37,10 +31,8 @@ Run:
 gradle :app:assembleDebug
 ```
 
-TDLib is sourced from the pinned Android AAR (`io.github.tdlib-android:core:0.1.1`). GitHub Actions extracts `classes.jar` and `libtdjni.so` for `arm64-v8a`, `armeabi-v7a`, `x86_64` and `x86` into the repository. The app then compiles against the vendored Java binding JARs and packages the matching native binary; no local NDK build is needed.
+TDLib Java bindings and native libraries are vendored in app/libs/ and app/src/main/jniLibs/. GitHub Actions verifies the native payload and builds the debug APK.
 
-## Architecture notes
+## Current limitations
 
-See [TDLib integration](docs/TDLIB.md), [authentication](docs/AUTHENTICATION.md), and [protocol decision](docs/PROTOCOL_DECISION.md).
-
-BirGram was studied as an architectural reference: its separate TDLib client manager, update dispatching, repository/service boundary and StateFlow-driven UI informed this implementation. KotliGram does not copy BirGram's application source.
+KotliGram is an early independent client, not a feature-complete Telegram replacement. Media playback, albums, message editing/forwarding/reactions, search across messages, chat folders, notifications, proxy controls, and multi-account management still need implementation. Build success does not by itself verify live Telegram behavior on a device.
