@@ -99,9 +99,6 @@ class TelegramRepository(
                     if (it.id == update.chatId) it.copy(lastMessage = preview) else it
                 }
             }
-            is TdApi.UpdateChatUnreadCount -> _chats.value = _chats.value.map {
-                if (it.id == update.chatId) it.copy(unreadCount = update.unreadCount) else it
-            }
             is TdApi.UpdateNewMessage -> addMessage(update.message)
             is TdApi.UpdateMessageSendSucceeded -> replaceMessage(update.oldMessageId, update.message)
             is TdApi.UpdateMessageContent -> Unit
