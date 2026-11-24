@@ -98,10 +98,13 @@ class TelegramRepository(
             }
             is TdApi.UpdateChatPhoto -> scope.launch {
                 runCatching { client.request(TdApi.GetChat(update.chatId)) }
-                    .onSuccess(::mergeChat)
+                    .onSuccess { chat ->
+                        mergeChat(chat)
+                        chat.photo?.small?.id?.let { fileId -> scope.launch { runCatching { downloadFile(fileId) } } }
+                    }
             }
             is TdApi.UpdateChatPermissions -> _chats.value = _chats.value.map {
-                if (it.id == update.chatId) it.copy(canSendMessages = update.permissions.canSendBasicMessages) else it
+                if (it.id == update.chatId && !it.isChannel) it.copy(canSendMessages = update.permissions.canSendBasicMessages) else it
             }
             is TdApi.UpdateChatLastMessage -> {
                 val preview = update.lastMessage?.let(::messagePreview).orEmpty()
@@ -166,6 +169,12 @@ class TelegramRepository(
     fun loadChats() {
         scope.launch {
             try {
+                if (myUserId == 0L) {
+                    runCatching { client.request(TdApi.GetMe()) }.getOrNull()?.let { user ->
+                        myUserId = user.id
+                        _profile.value = user.toProfile()
+                    }
+                }
                 client.request(TdApi.LoadChats().apply {
                     chatList = TdApi.ChatListMain()
                     limit = 100
@@ -218,7 +227,7 @@ class TelegramRepository(
             }.getOrNull()
             when (val status = member?.status) {
                 is TdApi.ChatMemberStatusCreator -> true
-                is TdApi.ChatMemberStatusAdministrator -> status.canPostMessages
+                is TdApi.ChatMemberStatusAdministrator -> status.rights.canPostMessages
                 else -> false
             }
         }
@@ -329,7 +338,6 @@ class TelegramRepository(
                 updateDownloadedFile(file)
                 return file.local.path.takeIf(String::isNotBlank)
             }
-            if (!file.local.isDownloadingActive && it > 3) return null
         }
         return null
     }
@@ -369,7 +377,7 @@ class TelegramRepository(
             lastMessage = chat.lastMessage?.let(::messagePreview).orEmpty(),
             unreadCount = chat.unreadCount,
             avatarFileId = avatarId,
-            avatarPath = if (previous?.avatarFileId == avatarId) previous.avatarPath else null,
+            avatarPath = previous?.takeIf { it.avatarFileId == avatarId }?.avatarPath,
             canSendMessages = previous?.canSendMessages ?: chat.permissions.canSendBasicMessages,
             isChannel = previous?.isChannel ?: false
         )
