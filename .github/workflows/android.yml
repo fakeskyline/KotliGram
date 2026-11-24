@@ -38,7 +38,101 @@ jobs:
             curl --fail --location --retry 3 --retry-delay 2 \
               https://repo.maven.apache.org/maven2/io/github/tdlib-android/core/0.1.1/core-0.1.1.aar \
               --output /tmp/tdlib-core.aar
-            unzip -p /tmp/tdlib-core.aar classes.jar > app/libs/tdlib-classes.jar
+            rm -f app/libs/tdlib-classes.jar
+            unzip -Z1 /tmp/tdlib-core.aar | grep -E '(^classes.jar$|^libs/.*\\.jar$|^jni/.*/libtdjni\\.so$)'
+            unzip -p /tmp/tdlib-core.aar classes.jar > /tmp/tdlib-classes.jar || true
+            if jar tf /tmp/tdlib-classes.jar 2>/dev/null | grep -q '^org/drinkless/tdlib/Client.class
+              mkdir -p "app/src/main/jniLibs/$ABI"
+              unzip -p /tmp/tdlib-core.aar "jni/$ABI/libtdjni.so" > "app/src/main/jniLibs/$ABI/libtdjni.so"
+              test -s "app/src/main/jniLibs/$ABI/libtdjni.so"
+            done
+            sha256sum /tmp/tdlib-core.aar > app/libs/TDLIB-AAR-SHA256.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A app/libs app/src/main/jniLibs
+            if ! git diff --cached --quiet; then
+              git commit -m "Vendor TDLib Java bindings and JNI binaries [skip ci]"
+              git push origin HEAD:main
+            fi
+          fi
+
+      - name: Verify TDLib native payload
+        run: |
+          set -euo pipefail
+          HAS_CLIENT=false
+          HAS_TDAPI=false
+          for JAR in app/libs/*.jar; do
+            [[ -f "$JAR" ]] || continue
+            jar tf "$JAR" | grep -qx 'org/drinkless/tdlib/Client.class' && HAS_CLIENT=true || true
+            jar tf "$JAR" | grep -qx 'org/drinkless/tdlib/TdApi.class' && HAS_TDAPI=true || true
+          done
+          test "$HAS_CLIENT" = true
+          test "$HAS_TDAPI" = true
+          for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
+            test -s "app/src/main/jniLibs/$ABI/libtdjni.so"
+          done
+
+      - name: Build debug APK
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: gradle :app:assembleDebug
+
+      - name: Verify APK contains TDLib JNI
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libtdjni.so'
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KotliGram-debug
+          path: app/build/outputs/apk/debug/*.apk
+; then
+              cp /tmp/tdlib-classes.jar app/libs/tdlib-classes.jar
+            fi
+            while IFS= read -r ENTRY; do
+              [[ -z "$ENTRY" ]] && continue
+              unzip -p /tmp/tdlib-core.aar "$ENTRY" > "app/libs/$(basename "$ENTRY")"
+            done < <(unzip -Z1 /tmp/tdlib-core.aar | grep '^libs/.*\\.jar
+              mkdir -p "app/src/main/jniLibs/$ABI"
+              unzip -p /tmp/tdlib-core.aar "jni/$ABI/libtdjni.so" > "app/src/main/jniLibs/$ABI/libtdjni.so"
+              test -s "app/src/main/jniLibs/$ABI/libtdjni.so"
+            done
+            sha256sum /tmp/tdlib-core.aar > app/libs/TDLIB-AAR-SHA256.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app/libs/tdlib-classes.jar app/libs/TDLIB-AAR-SHA256.txt app/src/main/jniLibs
+            if ! git diff --cached --quiet; then
+              git commit -m "Vendor TDLib Java bindings and JNI binaries [skip ci]"
+              git push origin HEAD:main
+            fi
+          fi
+
+      - name: Verify TDLib native payload
+        run: |
+          set -euo pipefail
+          jar tf app/libs/tdlib-classes.jar | grep -qx 'org/drinkless/tdlib/Client.class'
+          jar tf app/libs/tdlib-classes.jar | grep -qx 'org/drinkless/tdlib/TdApi.class'
+          for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
+            test -s "app/src/main/jniLibs/$ABI/libtdjni.so"
+          done
+
+      - name: Build debug APK
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: gradle :app:assembleDebug
+
+      - name: Verify APK contains TDLib JNI
+        run: |
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libtdjni.so'
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KotliGram-debug
+          path: app/build/outputs/apk/debug/*.apk
+ || true)
             for ABI in arm64-v8a armeabi-v7a x86_64 x86; do
               mkdir -p "app/src/main/jniLibs/$ABI"
               unzip -p /tmp/tdlib-core.aar "jni/$ABI/libtdjni.so" > "app/src/main/jniLibs/$ABI/libtdjni.so"

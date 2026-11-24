@@ -1,6 +1,6 @@
 # TDLib integration
 
-KotliGram uses the pinned TDLib Android AAR `io.github.tdlib-android:core:0.1.1` as its binary source. The Android CI downloads it from Maven Central, extracts the generated `Client` and `TdApi` classes into `app/libs/tdlib-classes.jar`, and extracts `libtdjni.so` for `arm64-v8a`, `armeabi-v7a`, `x86_64` and `x86` into `app/src/main/jniLibs/`. The files are committed to this repository by the CI workflow, then the app compiles against the Java bindings and packages the matching native library. No local NDK build is needed. Source and build provenance: https://github.com/AkashPriyadarshii/tdlib-android
+KotliGram uses the pinned TDLib Android AAR `io.github.tdlib-android:core:0.1.1` as its binary source. The Android CI downloads it from Maven Central, extracts the generated Java binding JARs from the AAR's `libs/` directory (and `classes.jar` if it contains the binding classes) into `app/libs/`, and extracts `libtdjni.so` for `arm64-v8a`, `armeabi-v7a`, `x86_64` and `x86` into `app/src/main/jniLibs/`. The files are committed to this repository by the CI workflow, then the app compiles against the Java binding JARs and packages the matching native library. No local NDK build is needed. Source and build provenance: https://github.com/AkashPriyadarshii/tdlib-android
 
 ## KotliGram adapter
 
