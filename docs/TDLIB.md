@@ -32,7 +32,7 @@ Or provide `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` environment variables to Gr
 
 ## Compatibility and limitations
 
-- The app's configured minSdk is 23. TDLib AAR supplies four ABIs; Gradle packages the matching binary for the target device.
+- The app's configured minSdk is 26, matching the AAR's Android requirement. TDLib AAR supplies four ABIs; Gradle packages the matching binary for the target device.
 - Voice recording uses Android MediaRecorder to create an AAC/M4A file. TDLib accepts M4A as a voice-note input format.
 - The current app UI is an early functional layer, not a complete Telegram feature set. Download/playback of incoming media, pagination, search, replies, edits, reactions, calls and push notifications remain future work.
 
